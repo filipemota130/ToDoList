@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {Component} from 'react';
 import {
   SafeAreaView,
   View,
@@ -8,47 +8,83 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  Button,
-  TouchableWithoutFeedback,
-  AsyncStorage,
   Alert,
+  LogBox,
 } from 'react-native';
-
+import axios from 'axios';
 import Item from './Item';
 
-const ToDo = () => {
-  let comum = '#1DAB34';
-  let medio = '#FAA222';
-  let importante = '#A93226';
-  const [taskArray, updateTasks] = useState([]);
-  const [Texto, updateText] = useState('');
-  const [Level, updateLevel] = useState(comum);
-  const data = {
-    key: Texto,
-    task: Texto,
-    priority: Level,
+class ToDo extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      taskArray: [],
+      loading: true,
+      Texto: '',
+      Level: 0,
+      comum: '#1DAB34',
+      medio: '#FAA222',
+      importante: '#A93226',
+    };
+  }
+  componentDidMount = () => {
+    LogBox.ignoreLogs([
+      ' Failed child context type: Invalid child context `virtualizedCell.cellKey` of type `number` supplied to `CellRenderer`, expected `string`',
+    ]);
+    var this2 = this;
+    setInterval(function () {
+      axios
+        .get('https://todolist-295919.appspot.com/listItems')
+        .then((res) => {
+          this2.setState({
+            taskArray: res.data.items,
+            loading: false,
+          });
+        })
+        .catch((e) => {
+          console.log(JSON.stringify(e));
+        });
+    }, 2000);
   };
-  const Pressed = () => {
-    if (Texto === '') {
+
+  Pressed = () => {
+    if (this.state.Texto === '') {
       Alert.alert('Tarefa vazia', 'Adicione um conteúdo!');
     } else {
       const data = {
-        id: Texto,
-        task: Texto,
-        priority: Level,
+        key: Date.now().toString(),
+        task: this.state.Texto,
+        priority: this.state.Level,
       };
-      updateTasks([...taskArray, data]);
-      updateText('');
-      updateLevel(comum);
+      this.setState({
+        Texto: '',
+        Level: 0,
+        loading: true,
+      });
+      axios
+        .post(
+          `https://todolist-295919.appspot.com/addTodoItem?item=${data.task}&priority=${data.priority}&id=${data.key}`,
+        )
+        .then((res) => {
+          this.setState({
+            taskArray: res.data.items,
+            loading: false,
+          });
+        })
+        .catch((e) => {
+          console.log(JSON.stringify(e));
+        });
     }
   };
-  const handleDelete = (item) => {
+
+  handleDelete = (item) => {
     Alert.alert(
       'Deletar Tarefa',
       'Tem certeza?',
       [
         {
-          text: 'Cancelar',
+          text: 'Cancel',
           onPress: () => {
             return;
           },
@@ -57,116 +93,141 @@ const ToDo = () => {
         {
           text: 'OK',
           onPress: () =>
-            updateTasks(taskArray.filter((tasks) => tasks != item)),
+            this.setState({
+              taskArray: this.state.taskArray.filter((tasks) => tasks != item),
+            }),
         },
       ],
       {cancelable: false},
     );
   };
-  const changeCor = () => {
-    switch (data.priority) {
-      case comum:
-        alert('mudando para atenção');
-        data.priority = medio; //(TODO) pesquisar como se altera o valor após a criação
-        break;
-      case medio:
-        alert('mudando para importante');
-        data.priority = importante; //(TODO) pesquisar como se altera o valor após a criação
-        break;
-      case importante:
-        alert('mudando para comum');
-        data.priority = comum; //(TODO) pesquisar como se altera o valor após a criação
-        break;
-    }
-  };
-  const handleRendertask = ({item}) => (
+  handleRendertask = ({item}) => (
     <Item
-      texto={item.task}
+      texto={item.item}
       cor={item.priority}
-      handleDelete={() => handleDelete(item)}
-      changeCor={changeCor}></Item>
+      handleDelete={() => this.handleDelete(item)}></Item>
   );
-  useEffect(() => {
-    async function carregaDados() {
-      const taskArray = await AsyncStorage.getItem('taskArray');
+  render() {
+    if (!this.state.loading) {
+      return (
+        <SafeAreaView style={styles.fundo}>
+          <StatusBar backgroundColor="#0E82D8" />
+          <View style={[styles.flexy, styles.title]}>
+            <Text style={styles.title_text}>
+              TODO <Text style={styles.bold}>LIST</Text>
+            </Text>
+          </View>
+          <View style={styles.InputView}>
+            <TextInput
+              style={styles.input}
+              placeholder="Digite aqui"
+              placeholderTextColor="#fff"
+              onChangeText={(text) =>
+                this.setState({
+                  Texto: text,
+                })
+              }
+              value={this.state.Texto}
+            />
+            <View>
+              <TouchableOpacity onPress={this.Pressed} style={styles.btn}>
+                <Text style={styles.add}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.title_select}>
+            <Text style={{color: '#fff', fontFamily: 'Poppins-Regular'}}>
+              Selecione o nivel de prioridade:
+            </Text>
+          </View>
 
-      if (taskArray) {
-        updateTasks(JSON.parse(taskArray));
-      }
+          <View style={styles.btn_div}>
+            <View style={styles.entri_btn}>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 5,
+                  borderRadius: 20,
+                  borderWidth: 2,
+                  fontFamily: 'Poppins-Regular',
+                  borderColor: this.state.comum,
+                }}
+                onPress={() =>
+                  this.setState({
+                    Level: 0,
+                  })
+                }>
+                <Text style={styles.text_btn}>Low</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.entri_btn}>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 5,
+                  borderRadius: 20,
+                  borderWidth: 2,
+                  fontFamily: 'Poppins-Regular',
+                  borderColor: this.state.medio,
+                }}
+                onPress={() =>
+                  this.setState({
+                    Level: 1,
+                  })
+                }>
+                <Text style={styles.text_btn}>Medium</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.entri_btn}>
+              <TouchableOpacity
+                style={{
+                  paddingHorizontal: 5,
+                  borderRadius: 20,
+                  borderWidth: 2,
+                  fontFamily: 'Poppins-Regular',
+                  borderColor: this.state.importante,
+                }}
+                onPress={() =>
+                  this.setState({
+                    Level: 2,
+                  })
+                }>
+                <Text style={styles.text_btn}>High</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <FlatList
+            data={this.state.taskArray}
+            key={(item) => item}
+            renderItem={this.handleRendertask}
+            style={{paddingBottom: 10}}
+          />
+        </SafeAreaView>
+      );
+    } else {
+      return (
+        <View style={styles.load}>
+          <Text>Carregando...</Text>
+        </View>
+      );
     }
-    carregaDados();
-  }, []);
-
-  useEffect(() => {
-    async function salvaDados() {
-      AsyncStorage.setItem('taskArray', JSON.stringify(taskArray));
-    }
-    salvaDados();
-  }, [taskArray]);
-  return (
-    <SafeAreaView style={styles.fundo}>
-      <StatusBar backgroundColor="#0E82D8" />
-      <View style={[styles.flexy, styles.title]}>
-        <Text style={styles.title_text}>
-          TODO <Text style={styles.bold}>LIST</Text>
-        </Text>
-      </View>
-      <View style={styles.info_aling}>
-        <Text style={styles.info}>Selecione o nivel de prioridade:</Text>
-      </View>
-
-      <View style={styles.priority_view}>
-        <View style={styles.entri_btn}>
-          <TouchableOpacity
-            style={[styles.btnFormat, {borderColor: comum}]}
-            onPress={() => updateLevel(comum)}>
-            <Text style={styles.btn_text}>Comum</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.entri_btn}>
-          <TouchableOpacity
-            style={[styles.btnFormat, {borderColor: medio}]}
-            onPress={() => updateLevel(medio)}>
-            <Text style={styles.btn_text}>Atento</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.entri_btn}>
-          <TouchableOpacity
-            style={[styles.btnFormat, {borderColor: importante}]}
-            onPress={() => updateLevel(importante)}>
-            <Text style={styles.btn_text}>importante</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.InputView}>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite aqui"
-          placeholderTextColor="#fff"
-          onChangeText={(text) => updateText(text)}
-          value={Texto}
-        />
-        <View>
-          <TouchableOpacity onPress={Pressed} style={styles.btn}>
-            <Text style={styles.add}>+</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <FlatList
-        data={taskArray}
-        key={(item) => item}
-        renderItem={handleRendertask}
-      />
-    </SafeAreaView>
-  );
-};
+  }
+}
 const styles = StyleSheet.create({
   flexy: {
     flex: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  load: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text_btn: {
+    padding: 10,
+    paddingBottom: 5,
+    color: 'white',
+    fontFamily: 'Poppins-Regular',
   },
   InputView: {
     flex: 0,
@@ -175,6 +236,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: 10,
     marginVertical: 20,
+  },
+  btn_div: {
+    flex: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 40,
   },
   title: {
     padding: 30,
@@ -220,36 +288,12 @@ const styles = StyleSheet.create({
   entri_btn: {
     paddingHorizontal: 2.5,
   },
-  info: {
-    color: '#fff',
-    fontFamily: 'Poppins-Regular',
-  },
-  info_aling: {
+  title_select: {
     flex: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    paddingTop: 30,
-  },
-  priority_view: {
-    flex: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 10,
-  },
-  btnFormat: {
-    paddingHorizontal: 5,
-    borderRadius: 20,
-    borderWidth: 2,
-    fontFamily: 'Poppins-Regular',
-  },
-  btn_text: {
-    padding: 10,
-    paddingBottom: 5,
-    color: 'white',
-    fontFamily: 'Poppins-Regular',
   },
 });
 
